@@ -1,0 +1,1 @@
+The Goal of this project is to create a browser extension that will show the Zestimate on Zillow even if they try and hide it.
