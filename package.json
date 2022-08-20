@@ -1,0 +1,28 @@
+{
+  "name": "showzest",
+  "version": "1.0.0",
+  "description": "Show Zestimate on all Zillow home details pages",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "esbuild src/*.ts --bundle --minify --target=chrome88 --outdir=build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertBattaglia/showzest.git"
+  },
+  "keywords": [
+    "zillow",
+    "extension",
+    "zestimate"
+  ],
+  "author": "RobertBattaglia",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RobertBattaglia/showzest/issues"
+  },
+  "homepage": "https://github.com/RobertBattaglia/showzest#readme",
+  "dependencies": {
+    "esbuild": "^0.15.5"
+  }
+}
