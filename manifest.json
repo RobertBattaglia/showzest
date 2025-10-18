@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "showzest",
   "description": "Enhanced Zillow home detail pages",
-  "version": "1.0",
+  "version": "2.0",
   "author": "RobertBattaglia",
   "minimum_chrome_version": "88",
   "icons": {
@@ -11,8 +11,15 @@
       "48": "icons/48.png",
       "128": "icons/128.png"
   },
-  "permissions": ["scripting", "activeTab"],
-  "host_permissions": ["https://www.zillow.com/"],
+  "permissions": ["scripting"],
+  "host_permissions": ["https://www.zillow.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.zillow.com/homedetails/*"],
+      "js": ["build/script.js"],
+      "run_at": "document_end"
+    }
+  ],
   "background": {
     "service_worker": "build/background.js"
   }
