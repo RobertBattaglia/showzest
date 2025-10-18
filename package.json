@@ -1,11 +1,12 @@
 {
   "name": "showzest",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Show Zestimate on all Zillow home details pages",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "esbuild src/*.ts --bundle --minify --target=chrome88 --outdir=build"
+    "build": "esbuild src/*.ts --bundle --minify --target=chrome88 --outdir=build --sourcemap",
+    "build:dev": "esbuild src/*.ts --bundle --target=chrome88 --outdir=build --sourcemap"
   },
   "repository": {
     "type": "git",
