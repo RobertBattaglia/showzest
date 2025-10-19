@@ -247,6 +247,24 @@ const createChart = (chartData: ChartData[]) => {
   `
   container.appendChild(tooltip)
 
+  // Create selection info element
+  const selectionInfo = document.createElement('div')
+  selectionInfo.style.cssText = `
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 12px;
+    z-index: 1001;
+    display: none;
+    min-width: 200px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  `
+  container.appendChild(selectionInfo)
+
   const points = chartData[0].points
   const values = points.map(p => p.y)
   const minValue = Math.min(...values)
@@ -273,7 +291,7 @@ const createChart = (chartData: ChartData[]) => {
 
   svg.appendChild(path)
 
-  // Add data points with hover tooltips
+  // Add data points (visual circles only)
   points.forEach((point, index) => {
     const x = (index / (points.length - 1)) * 700 + 50
     const y = 350 - ((point.y - minValue) / valueRange) * 280
@@ -281,45 +299,263 @@ const createChart = (chartData: ChartData[]) => {
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
     circle.setAttribute('cx', x.toString())
     circle.setAttribute('cy', y.toString())
-    circle.setAttribute('r', '4')
+    circle.setAttribute('r', '1')
     circle.setAttribute('fill', 'rgb(0, 106, 255)')
-    circle.setAttribute('cursor', 'pointer')
-    circle.style.transition = 'r 0.2s, fill 0.2s'
+    circle.style.pointerEvents = 'none' // Disable individual circle hover
 
-    const date = new Date(point.x).toLocaleDateString('en-US', { 
+    svg.appendChild(circle)
+  })
+
+  // Add vertical guide line
+  const guideLine = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+  guideLine.setAttribute('y1', '70')
+  guideLine.setAttribute('y2', '350')
+  guideLine.setAttribute('stroke', 'rgba(0, 106, 255, 0.3)')
+  guideLine.setAttribute('stroke-width', '1')
+  guideLine.setAttribute('stroke-dasharray', '4,4')
+  guideLine.style.display = 'none'
+  guideLine.style.pointerEvents = 'none'
+  svg.appendChild(guideLine)
+
+  // Selection state
+  let isSelecting = false
+  let selectionStart = -1
+  let selectionEnd = -1
+  let hasSelection = false
+
+  // Add selection overlay rectangles
+  const leftOverlay = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+  leftOverlay.setAttribute('y', '70')
+  leftOverlay.setAttribute('height', '280')
+  leftOverlay.setAttribute('fill', 'rgba(128, 128, 128, 0.3)')
+  leftOverlay.style.display = 'none'
+  leftOverlay.style.pointerEvents = 'none'
+  svg.appendChild(leftOverlay)
+
+  const rightOverlay = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+  rightOverlay.setAttribute('y', '70')
+  rightOverlay.setAttribute('height', '280')
+  rightOverlay.setAttribute('fill', 'rgba(128, 128, 128, 0.3)')
+  rightOverlay.style.display = 'none'
+  rightOverlay.style.pointerEvents = 'none'
+  svg.appendChild(rightOverlay)
+
+  // Add selection boundary lines
+  const selectionLine1 = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+  selectionLine1.setAttribute('y1', '70')
+  selectionLine1.setAttribute('y2', '350')
+  selectionLine1.setAttribute('stroke', 'rgba(255, 0, 0, 0.8)')
+  selectionLine1.setAttribute('stroke-width', '2')
+  selectionLine1.style.display = 'none'
+  selectionLine1.style.pointerEvents = 'none'
+  svg.appendChild(selectionLine1)
+
+  const selectionLine2 = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+  selectionLine2.setAttribute('y1', '70')
+  selectionLine2.setAttribute('y2', '350')
+  selectionLine2.setAttribute('stroke', 'rgba(255, 0, 0, 0.8)')
+  selectionLine2.setAttribute('stroke-width', '2')
+  selectionLine2.style.display = 'none'
+  selectionLine2.style.pointerEvents = 'none'
+  svg.appendChild(selectionLine2)
+
+  // Add invisible overlay for chart area hover detection
+  const hoverArea = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+  hoverArea.setAttribute('x', '50')
+  hoverArea.setAttribute('y', '70')
+  hoverArea.setAttribute('width', '700')
+  hoverArea.setAttribute('height', '280')
+  hoverArea.setAttribute('fill', 'transparent')
+  hoverArea.setAttribute('cursor', 'crosshair')
+
+  // Helper function to find closest data point index
+  const findClosestIndex = (mouseX: number) => {
+    let closestIndex = 0
+    let closestDistance = Infinity
+    
+    points.forEach((point, index) => {
+      const pointX = (index / (points.length - 1)) * 700 + 50
+      const distance = Math.abs(mouseX - pointX)
+      if (distance < closestDistance) {
+        closestDistance = distance
+        closestIndex = index
+      }
+    })
+    return closestIndex
+  }
+
+  // Helper function to update selection display
+  const updateSelectionDisplay = () => {
+    if (!hasSelection) return
+
+    const startIdx = Math.min(selectionStart, selectionEnd)
+    const endIdx = Math.max(selectionStart, selectionEnd)
+
+    const startX = (startIdx / (points.length - 1)) * 700 + 50
+    const endX = (endIdx / (points.length - 1)) * 700 + 50
+
+    // Update selection lines
+    selectionLine1.style.display = 'block'
+    selectionLine1.setAttribute('x1', startX.toString())
+    selectionLine1.setAttribute('x2', startX.toString())
+
+    selectionLine2.style.display = 'block'
+    selectionLine2.setAttribute('x1', endX.toString())
+    selectionLine2.setAttribute('x2', endX.toString())
+
+    // Update overlay rectangles
+    leftOverlay.style.display = 'block'
+    leftOverlay.setAttribute('x', '50')
+    leftOverlay.setAttribute('width', (startX - 50).toString())
+
+    rightOverlay.style.display = 'block'
+    rightOverlay.setAttribute('x', endX.toString())
+    rightOverlay.setAttribute('width', (750 - endX).toString())
+
+    // Calculate and display selection info
+    const startPoint = points[startIdx]
+    const endPoint = points[endIdx]
+    const priceDiff = endPoint.y - startPoint.y
+    const percentDiff = ((priceDiff / startPoint.y) * 100).toFixed(1)
+    const startDate = new Date(startPoint.x).toLocaleDateString('en-US', { 
+      year: 'numeric', month: 'short', day: 'numeric' 
+    })
+    const endDate = new Date(endPoint.x).toLocaleDateString('en-US', { 
+      year: 'numeric', month: 'short', day: 'numeric' 
+    })
+
+    selectionInfo.innerHTML = `
+      <strong>Selection Comparison</strong><br>
+      <span style="color: #666; font-size: 10px;">Click chart to clear</span><br><br>
+      <strong>From:</strong> ${startDate}<br>
+      <strong>Price:</strong> ${formatZestimate(startPoint.y)}<br><br>
+      <strong>To:</strong> ${endDate}<br>
+      <strong>Price:</strong> ${formatZestimate(endPoint.y)}<br><br>
+      <strong>Difference:</strong> ${priceDiff >= 0 ? '+' : ''}${formatZestimate(Math.abs(priceDiff))}<br>
+      <strong>Change:</strong> ${priceDiff >= 0 ? '+' : ''}${percentDiff}%
+    `
+    selectionInfo.style.display = 'block'
+  }
+
+  // Helper function to clear selection
+  const clearSelection = () => {
+    hasSelection = false
+    selectionStart = -1
+    selectionEnd = -1
+    selectionLine1.style.display = 'none'
+    selectionLine2.style.display = 'none'
+    leftOverlay.style.display = 'none'
+    rightOverlay.style.display = 'none'
+    selectionInfo.style.display = 'none'
+  }
+
+  // Mouse down - start selection
+  hoverArea.addEventListener('mousedown', (e) => {
+    const svgRect = svg.getBoundingClientRect()
+    const mouseX = ((e.clientX - svgRect.left) / svgRect.width) * 800
+
+    if (hasSelection) {
+      clearSelection()
+      return
+    }
+
+    isSelecting = true
+    selectionStart = findClosestIndex(mouseX)
+    selectionEnd = selectionStart
+  })
+
+  // Mouse move - update selection or show tooltip
+  hoverArea.addEventListener('mousemove', (e) => {
+    const svgRect = svg.getBoundingClientRect()
+    const mouseX = ((e.clientX - svgRect.left) / svgRect.width) * 800
+    const closestIndex = findClosestIndex(mouseX)
+
+    if (isSelecting) {
+      selectionEnd = closestIndex
+
+      // Show tooltip and guide line for the current drag position
+      const closestPoint = points[closestIndex]
+      const date = new Date(closestPoint.x).toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      })
+      const value = formatZestimate(closestPoint.y)
+
+      tooltip.innerHTML = `
+        <div style="text-align: center;">
+          <div style="font-weight: bold;">${value}</div>
+          <div style="font-size: 10px; opacity: 0.9;">${date}</div>
+        </div>
+      `
+      tooltip.style.display = 'block'
+
+      // Show guide line at current mouse position
+      guideLine.style.display = 'block'
+      guideLine.setAttribute('x1', mouseX.toString())
+      guideLine.setAttribute('x2', mouseX.toString())
+
+      // Position tooltip at mouse position
+      const containerRect = container.getBoundingClientRect()
+      const mouseXRelative = e.clientX - containerRect.left
+      const mouseYRelative = e.clientY - containerRect.top
+
+      tooltip.style.left = `${mouseXRelative - tooltip.offsetWidth / 2}px`
+      tooltip.style.top = `${mouseYRelative}px`
+
+      return
+    }
+
+    if (hasSelection) return // Don't show tooltip when selection is active
+
+    const closestPoint = points[closestIndex]
+    const date = new Date(closestPoint.x).toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric' 
     })
-    const value = formatZestimate(point.y)
+    const value = formatZestimate(closestPoint.y)
 
-    // Mouse enter - show tooltip and enlarge circle
-    circle.addEventListener('mouseenter', (e) => {
-      circle.setAttribute('r', '6')
-      circle.setAttribute('fill', 'rgb(0, 85, 204)')
+    tooltip.innerHTML = `
+      <div style="text-align: center;">
+        <div style="font-weight: bold;">${value}</div>
+        <div style="font-size: 10px; opacity: 0.9;">${date}</div>
+      </div>
+    `
+    tooltip.style.display = 'block'
 
-      tooltip.textContent = `${date}: ${value}`
-      tooltip.style.display = 'block'
+    // Show and position vertical guide line
+    guideLine.style.display = 'block'
+    guideLine.setAttribute('x1', mouseX.toString())
+    guideLine.setAttribute('x2', mouseX.toString())
 
-      // Position tooltip near the circle
-      const svgRect = svg.getBoundingClientRect()
-      const containerRect = container.getBoundingClientRect()
-      const circleX = (x / 800) * svgRect.width
-      const circleY = (y / 420) * svgRect.height
+    // Position tooltip at mouse position
+    const containerRect = container.getBoundingClientRect()
+    const mouseXRelative = e.clientX - containerRect.left
+    const mouseYRelative = e.clientY - containerRect.top
 
-      tooltip.style.left = `${circleX - tooltip.offsetWidth / 2}px`
-      tooltip.style.top = `${circleY - 35}px`
-    })
-
-    // Mouse leave - hide tooltip and restore circle
-    circle.addEventListener('mouseleave', () => {
-      circle.setAttribute('r', '4')
-      circle.setAttribute('fill', 'rgb(0, 106, 255)')
-      tooltip.style.display = 'none'
-    })
-
-    svg.appendChild(circle)
+    tooltip.style.left = `${mouseXRelative - tooltip.offsetWidth / 2}px`
+    tooltip.style.top = `${mouseYRelative}px`
   })
+
+  // Mouse up - finish selection
+  hoverArea.addEventListener('mouseup', () => {
+    if (isSelecting && selectionStart !== selectionEnd) {
+      isSelecting = false
+      hasSelection = true
+      updateSelectionDisplay()
+    } else {
+      isSelecting = false
+    }
+  })
+
+  // Chart area mouse leave - hide tooltip and guide line
+  hoverArea.addEventListener('mouseleave', () => {
+    tooltip.style.display = 'none'
+    guideLine.style.display = 'none'
+  })
+
+  svg.appendChild(hoverArea)
 
   // Add y-axis labels (price values)
   const minLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text')
