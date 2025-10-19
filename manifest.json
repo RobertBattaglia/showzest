@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "showzest",
   "description": "Enhanced Zillow home detail pages",
-  "version": "2.0",
+  "version": "2.1.0",
   "author": "RobertBattaglia",
   "minimum_chrome_version": "88",
   "icons": {
